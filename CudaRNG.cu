@@ -8,12 +8,10 @@
 #include <unistd.h>
 #include <cmath>
 
-
 #define Cm cudaMalloc
 #define Cmc cudaMemcpy
 #define CmcHD cudaMemcpyHostToDevice
 #define CmcDH cudaMemcpyDeviceToHost
-
 
 __host__ void cpuBinConverter(int temprature,int* fin_bin)
 {
@@ -265,8 +263,8 @@ int main(int argc, char** argv)
     }
     cpuPrinter(out,64);
     cpuIntConverter(out,ret,64);
-    printf("%d", ret);
+    printf("The random number generated is %d", ret);
 
-
+    //gpu generation implemenatation
     return 0;
 }

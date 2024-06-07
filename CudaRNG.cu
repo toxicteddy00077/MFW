@@ -28,12 +28,8 @@ __global__ void gpuBinConverter(int d_temprature,int* d_fin_bin)
     __shared__ int hold;
     if(tid<32)
     {
-        int hold=(int)d_temprature>>tid;
-        if(hold==1)
-        {
-            d_fin_bin[32-tid]=hold&1;
-        }
-        else d_fin_bin[32-tid]=0;
+        int hold=((int)d_temprature>>tid)&1;
+        d_fin_bin[32-tid]=hold;
     }
 }
 
@@ -146,10 +142,9 @@ __host__ void cpuPrinter(int* cells,int size)
 
 __global__ void gpuPrinter(int *d_cells,int d_size)
 {
-    int tid=threadIdx.x+blockDim.x*blockIdx.x;
-    if(tid<d_size)
+    for(int i=0;i<d_size;i++)
     {
-        if(d_cells[tid]==1) printf("1");
+        if(d_cells[i]==1) printf("1");
         else printf("0");
     }
     printf("\n");
@@ -158,19 +153,20 @@ __global__ void gpuPrinter(int *d_cells,int d_size)
 __host__ void cudaRNG(int seed,int size,int* rule,int blocksize)
 {
     int *cells=(int*)malloc(size*sizeof(int));
-    int ret;
-    int *d_ret;
+    unsigned int ret;
+    unsigned int *d_ret;
     int *d_cells;
     int *d_res;
     int *d_out;
     int *d_rule;
 
     cpuBinConverter(seed,cells);
+    cpuPrinter(cells,size);
 
     Cm((int**)&d_cells,size*sizeof(int));
     Cm((int**)&d_res,size*sizeof(int));//temporary variables
     Cm((int**)&d_out,size*sizeof(int));//temporary variables 
-    Cm((int**)&d_ret,sizeof(int));
+    Cm((unsigned int**)&d_ret,sizeof(unsigned int));
     Cm((int**)&d_rule,8*sizeof(int));
 
     Cmc(d_cells,cells,size*sizeof(int),CmcHD);
@@ -186,8 +182,11 @@ __host__ void cudaRNG(int seed,int size,int* rule,int blocksize)
 
         gpuTransf<<<no_blocks,blocksize>>>(d_out,d_cells,size);
     }
-    gpuIntConverter<<<1,1>>>(d_out,&d_ret,size);
-    Cmc(&ret,d_ret,sizeof(int),CmcDH);
+    gpuIntConverter<<<1,1>>>(d_out,*d_ret,size);
+
+    cudaDeviceSynchronize();
+
+    Cmc(&ret,d_ret,sizeof(unsigned int),CmcDH);
     printf("%d",ret);
 }
 
@@ -244,27 +243,32 @@ int main(int argc, char** argv)
     }
     closedir(dir);
 
-    int *cells=(int*)malloc(64*sizeof(int));
-    cpuBinConverter((int)fin_temp,cells);
+    // int *cells=(int*)malloc(64*sizeof(int));
+    // cpuBinConverter((int)fin_temp,cells);
     int rule[8]={0,0,0,1,1,1,1,0};
     int out[64]={0};
-    unsigned int ret;
+    unsigned int r;
+
+    //gpu generation implemenatation
+    printf("The GPU implementation: \n");
+    cudaRNG((int)fin_temp,64,rule,32);
+    printf("\n");
 
     int *d_temp;
     int *d_cells;
     int *d_newcells;
     
     //cpu generation for refernce
-    for(int i=0;i<32;i++)
-    {
-        cpuPrinter(cells,64);
-        elementaryCellGenerate(cells,out,64,rule);
-        cpuTransf(out,cells,64);
-    }
-    cpuPrinter(out,64);
-    cpuIntConverter(out,ret,64);
-    printf("The random number generated is %d", ret);
+    printf("The CPU implementation: \n");
+    // for(int i=0;i<32;i++)
+    // {
+    //     cpuPrinter(cells,64);
+    //     elementaryCellGenerate(cells,out,64,rule);
+    //     cpuTransf(out,cells,64);
+    // }
+    // cpuPrinter(out,64);
+    // cpuIntConverter(out,r,64);
+    // printf("The random number generated is %d", r);
 
-    //gpu generation implemenatation
     return 0;
 }

@@ -8,10 +8,12 @@
 #include <unistd.h>
 #include <cmath>
 
+
 #define Cm cudaMalloc
 #define Cmc cudaMemcpy
 #define CmcHD cudaMemcpyHostToDevice
 #define CmcDH cudaMemcpyDeviceToHost
+
 
 __host__ void cpuBinConverter(int temprature,int* fin_bin)
 {
@@ -29,7 +31,7 @@ __global__ void gpuBinConverter(int d_temprature,int* d_fin_bin)
     if(tid<32)
     {
         int hold=((int)d_temprature>>tid)&1;
-        d_fin_bin[32-tid]=hold;
+        d_fin_bin[31-tid]=hold;
     }
 }
 
@@ -47,6 +49,10 @@ __global__ void gpuIntConverter(int* d_cells,unsigned int &d_ret,int d_size)
 {
     int tid=threadIdx.x+blockDim.x*blockIdx.x;
     __shared__ int hold;
+    if(tid==0)
+    {
+        hold=0;
+    }
     if(tid<d_size)
     {
         atomicAdd(&hold,pow(2,d_size-tid-1)*d_cells[tid]);
@@ -256,7 +262,6 @@ int main(int argc, char** argv)
 
     int *d_temp;
     int *d_cells;
-    int *d_newcells;
     
     //cpu generation for refernce
     printf("The CPU implementation: \n");

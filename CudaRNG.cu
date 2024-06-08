@@ -45,7 +45,7 @@ __host__ void cpuIntConverter(int* cells,unsigned int &ret,int size)
     ret=hold;
 }
 
-__global__ void gpuIntConverter(int* d_cells,unsigned int &d_ret,int d_size)
+__global__ void gpuIntConverter(int* d_cells,unsigned int *d_ret,int d_size)
 {
     int tid=threadIdx.x+blockDim.x*blockIdx.x;
     __shared__ int hold;
@@ -58,7 +58,11 @@ __global__ void gpuIntConverter(int* d_cells,unsigned int &d_ret,int d_size)
         atomicAdd(&hold,pow(2,d_size-tid-1)*d_cells[tid]);
     }
     __syncthreads();
-    d_ret=hold;
+    if(tid==0)
+    {
+        *d_ret=hold;
+
+    }
 }
 
 __global__ void moveRight(int* arr,int* res,int delta)
@@ -127,12 +131,14 @@ __global__ void gpuElementaryCellularAutoRule30(int* d_cells,int* d_out, int d_s
 {
     int tid=threadIdx.x+blockDim.x*blockIdx.x;
     __shared__ int p,q,r;
+    __shared__ int hold;
     if(tid>0 && tid<d_size-1)
     {
         p=4*d_cells[tid-1];
         q=2*d_cells[tid];
         r=d_cells[tid+1];
-        d_out[tid]=d_rule[7-(p+q+r)];
+        hold=d_rule[7-(p+q+r)];
+        d_out[tid]=hold;
     }
 }   
 
@@ -172,7 +178,7 @@ __host__ void cudaRNG(int seed,int size,int* rule,int blocksize)
     Cm((int**)&d_cells,size*sizeof(int));
     Cm((int**)&d_res,size*sizeof(int));//temporary variables
     Cm((int**)&d_out,size*sizeof(int));//temporary variables 
-    Cm((unsigned int**)&d_ret,sizeof(unsigned int));
+    Cm((void**)&d_ret,sizeof(unsigned int));
     Cm((int**)&d_rule,8*sizeof(int));
 
     Cmc(d_cells,cells,size*sizeof(int),CmcHD);
@@ -181,14 +187,14 @@ __host__ void cudaRNG(int seed,int size,int* rule,int blocksize)
     int no_blocks=(size+blocksize-1)/blocksize;
     for(int i=0;i<(size/2);i++)
     {
-        gpuPrinter<<<1,1>>>(d_out,size);
+        gpuPrinter<<<1,1>>>(d_cells,size);
         gpuElementaryCellularAutoRule30<<<no_blocks,blocksize>>>(d_cells,d_out,size,d_rule);
 
         cudaDeviceSynchronize();
 
         gpuTransf<<<no_blocks,blocksize>>>(d_out,d_cells,size);
     }
-    gpuIntConverter<<<1,1>>>(d_out,*d_ret,size);
+    gpuIntConverter<<<1,32>>>(d_cells,d_ret,size);
 
     cudaDeviceSynchronize();
 
@@ -249,8 +255,6 @@ int main(int argc, char** argv)
     }
     closedir(dir);
 
-    // int *cells=(int*)malloc(64*sizeof(int));
-    // cpuBinConverter((int)fin_temp,cells);
     int rule[8]={0,0,0,1,1,1,1,0};
     int out[64]={0};
     unsigned int r;

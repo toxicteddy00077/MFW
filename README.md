@@ -1,3 +1,3 @@
-# Parallel computing(CUDA)
-One of the primary aims of this repository is to test out and refine my skill in parallel computing 
+# Cuda RNG
+A very basic random number generator implemented in CUDA C using the concept of cellular automta (see:https://en.wikipedia.org/wiki/Conway's_Game_of_Life) and CPU temprature as seed.
 
